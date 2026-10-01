@@ -1,0 +1,7 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:VisualElement name="ScreenUI" style="flex-grow: 1;">
+        <ui:VisualElement name="Timer" style="flex-grow: 1; align-items: center; opacity: 1; background-color: rgb(110, 124, 130); width: auto; height: auto; align-self: center; flex-basis: auto; min-width: 300px; min-height: 80px; display: flex; visibility: visible; position: relative; align-content: flex-start; padding-top: 0; margin-top: 20px; margin-bottom: 0; margin-left: 0; max-width: 500px; max-height: 120px;">
+            <ui:Label text="0:00" name="TimerLabel" style="font-size: 80%; color: rgb(205, 207, 217); justify-content: center; align-items: center; align-content: center; align-self: center; -unity-font-style: bold; -unity-text-outline-width: 2px; text-shadow: 5px 2px 2px rgb(42, 48, 70); letter-spacing: 12px; word-spacing: 0; -unity-text-outline-color: rgb(52, 70, 93);"/>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
