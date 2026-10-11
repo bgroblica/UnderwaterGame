@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,7 +8,8 @@ public class PlayerMovement : MonoBehaviour
     [Header("Speed")]
     [SerializeField] private float swimSpeed = 5f;
     [SerializeField] private float swimFastSpeed = 8f;
-    [SerializeField] private float rotationSpeed = 500f;
+    [SerializeField] private float swimPenalty = 2f;
+    [SerializeField] private float rotationSpeed = 3f;
     [SerializeField] private float gravity = 0.2f;
 
     [Header("References")]
@@ -19,6 +21,8 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 moveInput;
 
     private float currentSpeed;
+
+    private bool isDragging = false;
 
     private void Awake()
     {
@@ -65,12 +69,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void Sprint(InputAction.CallbackContext ctx)
     {
-        currentSpeed = swimFastSpeed;
+        if (isDragging == false)
+        {
+            currentSpeed = swimFastSpeed;
+        }
     }
 
     private void SprintStop(InputAction.CallbackContext ctx)
     {
-        currentSpeed = swimSpeed;
+        if (isDragging == false)
+        {
+            currentSpeed = swimSpeed;
+        }
     }
 
     private void Rotate()
@@ -78,8 +88,22 @@ public class PlayerMovement : MonoBehaviour
         if (moveInput != Vector2.zero)
         {
             Quaternion targetRotation = Quaternion.LookRotation(transform.forward, moveInput);
-            Quaternion rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+            Quaternion rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             rb.MoveRotation(rotation);
+        }
+    }
+
+    public void DraggedObject(bool check)
+    {
+        isDragging = check;
+
+        if (isDragging == true)
+        {
+            currentSpeed = swimPenalty;
+        }
+        else
+        {
+            currentSpeed = swimSpeed;
         }
     }
 }
