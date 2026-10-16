@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: 5768497010099815227}
   m_Layer: 0
   m_Name: PlayerModel
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -184,7 +184,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   swimSpeed: 5
   swimFastSpeed: 8
-  currentSwimPenalty: 1
+  swimPenalty: 2
   rotationSpeed: 3
   gravity: 0.2
   moveActionReference: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
