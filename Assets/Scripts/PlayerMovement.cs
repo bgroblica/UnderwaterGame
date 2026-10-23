@@ -1,9 +1,10 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Unity.Netcode;
 
 [RequireComponent(typeof(Rigidbody2D))]
-public class PlayerMovement : MonoBehaviour
+public class PlayerMovement : NetworkBehaviour
 {
     [Header("Speed")]
     [SerializeField] private float swimSpeed = 5f;
@@ -15,6 +16,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("References")]
     [SerializeField] private InputActionReference moveActionReference;
     [SerializeField] private InputActionReference sprintActionReference;
+    [SerializeField] private Camera camera;
 
     private Rigidbody2D rb;
 
@@ -24,15 +26,26 @@ public class PlayerMovement : MonoBehaviour
 
     private bool isDragging = false;
 
-    private void Awake()
+    public override void OnNetworkSpawn()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = gravity;
         currentSpeed = swimSpeed;
+
+        if (!IsOwner)
+        {
+            camera.enabled = false;
+        }
     }
+
 
     private void FixedUpdate()
     {
+        if (IsOwner)
+        {
+            return;
+        }
+
         rb.MovePosition(rb.position + moveInput.normalized * currentSpeed * Time.fixedDeltaTime);
         Rotate();
     }
