@@ -1,3 +1,4 @@
+
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -19,104 +20,117 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private Camera camera;
 
     private Rigidbody2D rb;
-
     private Vector2 moveInput;
-
     private float currentSpeed;
-
     private bool isDragging = false;
 
-    public override void OnNetworkSpawn()
+    private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         rb.gravityScale = gravity;
         currentSpeed = swimSpeed;
+    }
 
-        if (!IsOwner)
+    public override void OnNetworkSpawn()
+    {
+        if (camera != null)
+            camera.gameObject.SetActive(IsOwner);
+
+        if (IsOwner)
         {
-            camera.enabled = false;
+            moveActionReference.action.Enable();
+            sprintActionReference.action.Enable();
         }
     }
 
-
-    private void FixedUpdate()
+    public override void OnNetworkDespawn()
     {
         if (IsOwner)
         {
-            return;
+            moveActionReference.action.Disable();
+            sprintActionReference.action.Disable();
         }
+    }
 
-        rb.MovePosition(rb.position + moveInput.normalized * currentSpeed * Time.fixedDeltaTime);
+    private void FixedUpdate()
+    {
+        if (!IsOwner)
+            return;
+
+        rb.MovePosition(
+            rb.position + moveInput.normalized *
+            currentSpeed * Time.fixedDeltaTime
+        );
+
         Rotate();
     }
 
     private void OnEnable()
     {
-        moveActionReference.action.Enable();
         moveActionReference.action.performed += OnMovePerformed;
         moveActionReference.action.canceled += OnMoveCancelled;
 
         sprintActionReference.action.started += Sprint;
         sprintActionReference.action.canceled += SprintStop;
     }
+
     private void OnDisable()
     {
         moveActionReference.action.performed -= OnMovePerformed;
         moveActionReference.action.canceled -= OnMoveCancelled;
-        moveActionReference.action.Disable();
 
         sprintActionReference.action.started -= Sprint;
         sprintActionReference.action.canceled -= SprintStop;
     }
+
     private void OnMovePerformed(InputAction.CallbackContext ctx)
     {
+        if (!IsOwner) return;
+
         moveInput = ctx.ReadValue<Vector2>();
         rb.gravityScale = 0;
     }
 
     private void OnMoveCancelled(InputAction.CallbackContext ctx)
     {
+        if (!IsOwner) return;
+
         moveInput = Vector2.zero;
         rb.gravityScale = gravity;
     }
 
     private void Sprint(InputAction.CallbackContext ctx)
     {
-        if (isDragging == false)
-        {
+        if (!IsOwner) return;
+
+        if (!isDragging)
             currentSpeed = swimFastSpeed;
-        }
     }
 
     private void SprintStop(InputAction.CallbackContext ctx)
     {
-        if (isDragging == false)
-        {
+        if (!IsOwner) return;
+
+        if (!isDragging)
             currentSpeed = swimSpeed;
-        }
     }
 
     private void Rotate()
     {
         if (moveInput != Vector2.zero)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(transform.forward, moveInput);
-            Quaternion rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-            rb.MoveRotation(rotation);
+            float targetAngle = Mathf.Atan2(moveInput.y,moveInput.x) * Mathf.Rad2Deg;
+             
+            float newAngle = Mathf.LerpAngle(rb.rotation,targetAngle,rotationSpeed * Time.fixedDeltaTime);    
+        rb.MoveRotation(newAngle);
         }
     }
 
     public void DraggedObject(bool check)
     {
-        isDragging = check;
+        if (!IsOwner) return;
 
-        if (isDragging == true)
-        {
-            currentSpeed = swimPenalty;
-        }
-        else
-        {
-            currentSpeed = swimSpeed;
-        }
+        isDragging = check;
+        currentSpeed = isDragging ? swimPenalty : swimSpeed;
     }
 }
