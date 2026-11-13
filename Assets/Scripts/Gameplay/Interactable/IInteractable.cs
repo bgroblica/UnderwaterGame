@@ -1,8 +1,9 @@
 public interface IInteractable
 {
-    public void Interact();
+    bool CanInteract { get; }
+    bool CanHighlight { get; }
 
-    public void OnEnter();
-
-    public void OnExit();
+    void Interact();
+    void OnEnter();
+    void OnExit();
 }

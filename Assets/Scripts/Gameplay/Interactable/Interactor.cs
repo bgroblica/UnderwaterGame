@@ -1,22 +1,48 @@
+
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Unity.Netcode;
 
-public class Interactor : MonoBehaviour
+public class Interactor : NetworkBehaviour
 {
     private InputAction interactInput;
 
     private IInteractable currentInteractable;
-
-    private bool hasOverride = false;
+    private bool isHighlighted;
 
     private void Start()
     {
+        if (!IsOwner)
+            return;
+
         interactInput = InputSystem.actions.FindAction("Interact");
     }
 
     private void Update()
     {
-        if (interactInput.WasPressedThisFrame() && currentInteractable != null)
+        if (!IsOwner || interactInput == null)
+            return;
+
+        // Update highlighting when network availability changes.
+        if (currentInteractable != null)
+        {
+            bool shouldHighlight = currentInteractable.CanHighlight;
+
+            if (shouldHighlight != isHighlighted)
+            {
+                isHighlighted = shouldHighlight;
+
+                if (isHighlighted)
+                    currentInteractable.OnEnter();
+                else
+                    currentInteractable.OnExit();
+            }
+        }
+
+        // Handle interaction.
+        if (interactInput.WasPressedThisFrame() &&
+            currentInteractable != null &&
+            currentInteractable.CanInteract)
         {
             currentInteractable.Interact();
         }
@@ -24,38 +50,48 @@ public class Interactor : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        IInteractable interactable = collision.GetComponent<IInteractable>();
+        if (!IsOwner)
+            return;
 
-        if (interactable != null && hasOverride == false)
+        IInteractable interactable =
+            collision.GetComponent<IInteractable>();
+
+        if (interactable == null || currentInteractable != null)
+            return;
+
+        currentInteractable = interactable;
+
+        if (currentInteractable.CanHighlight)
         {
-            currentInteractable = interactable;
             currentInteractable.OnEnter();
-            Debug.Log("Current Interactable is" + currentInteractable);
+            isHighlighted = true;
         }
     }
+
     private void OnTriggerExit2D(Collider2D collision)
     {
-        IInteractable interactable = collision.GetComponent<IInteractable>();
+        if (!IsOwner)
+            return;
 
-        if (interactable != null && interactable == currentInteractable && hasOverride == false)
-        {
+        IInteractable interactable =
+            collision.GetComponent<IInteractable>();
+
+        if (interactable == null || interactable != currentInteractable)
+            return;
+
+        if (isHighlighted)
             currentInteractable.OnExit();
-            currentInteractable = null;
-            Debug.Log("Current Interactable is" + currentInteractable);
-        }
-    }
 
-    public void CurrentInteractorOverride(IInteractable i)
-    {
-        currentInteractable = i;
-
-        hasOverride = true;
-    }
-
-    public void OverrideStop()
-    {
         currentInteractable = null;
+        isHighlighted = false;
+    }
 
-        hasOverride = false;
+    private void OnDisable()
+    {
+        if (isHighlighted && currentInteractable != null)
+            currentInteractable.OnExit();
+
+        currentInteractable = null;
+        isHighlighted = false;
     }
 }
