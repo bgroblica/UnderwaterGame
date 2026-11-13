@@ -2344,7 +2344,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerSpawner
   ShowTopMostFoldoutHeaderGroup: 1
-  spawnPoints: []
+  spawnPoints:
+  - {fileID: 81787779}
+  - {fileID: 1156130651}
+  - {fileID: 120868714}
+  - {fileID: 1138238755}
 --- !u!4 &1996897426
 Transform:
   m_ObjectHideFlags: 0
