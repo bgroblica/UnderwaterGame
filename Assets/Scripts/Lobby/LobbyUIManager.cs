@@ -76,13 +76,11 @@ public class LobbyUIManager : MonoBehaviour
             return;
         }
 
-        // Show the correct panel for this player.
         bool isHost = currentSession.IsHost;
 
         hostPanel.SetActive(isHost);
         playerPanel.SetActive(!isHost);
 
-        // Read the local player's current ready status.
         if (currentSession.CurrentPlayer.Properties.TryGetValue(
             "isReady", out var readyProperty))
         {
@@ -91,7 +89,6 @@ public class LobbyUIManager : MonoBehaviour
 
         UpdateReadyButtonText();
 
-        // Listen for session changes.
         currentSession.Changed += RefreshPlayerList;
         currentSession.Deleted += OnSessionDeleted;
 
@@ -110,10 +107,6 @@ public class LobbyUIManager : MonoBehaviour
             currentSession.Deleted -= OnSessionDeleted;
         }
     }
-
-    // ==========================================
-    // READY BUTTON
-    // ==========================================
 
     public async void OnReadyClicked()
     {
@@ -196,7 +189,6 @@ public class LobbyUIManager : MonoBehaviour
         {
             buttonText.text = text;
     
-            // Different font size depending on button text.
             buttonText.fontSize = text == "Ready"
                 ? readyButtonFontSize
                 : readyNotButtonFontSize;
@@ -212,16 +204,11 @@ public class LobbyUIManager : MonoBehaviour
         button.interactable = !isUpdatingReady;
     }
 
-    // ==========================================
-    // REFRESH PLAYER LIST
-    // ==========================================
-
     private void RefreshPlayerList()
     {
         if (currentSession == null)
             return;
 
-        // Clear previous entries.
         foreach (Transform child in contentParent)
         {
             Destroy(child.gameObject);
@@ -229,11 +216,9 @@ public class LobbyUIManager : MonoBehaviour
 
         var players = currentSession.Players;
 
-        // Update player count.
         playerCountText.text =
             players.Count + "/" + currentSession.MaxPlayers;
 
-        // Create an entry for each player.
         foreach (var player in players)
         {
             string playerName = "Unknown Player";
@@ -285,7 +270,6 @@ public class LobbyUIManager : MonoBehaviour
 
     private void OnSessionDeleted()
     {
-        // The host handles its own scene transition.
         if (currentSession != null && currentSession.IsHost)
             return;
     
@@ -318,12 +302,10 @@ public class LobbyUIManager : MonoBehaviour
     
         try
         {
-            // Start Relay networking for this existing session.
             await currentSession.AsHost().Network.StartRelayNetworkAsync(new RelayNetworkOptions());
     
             Debug.Log("Relay network started!");
-    
-            // Check that NGO was started by the session integration.
+
             NetworkManager networkManager = NetworkManager.Singleton;
     
             if (networkManager == null ||
@@ -337,7 +319,6 @@ public class LobbyUIManager : MonoBehaviour
     
             Debug.Log("NGO host is running. Loading GameTesting...");
     
-            // Load the gameplay scene for everyone.
             var status = networkManager.SceneManager.LoadScene(
                 "GameTesting",
                 LoadSceneMode.Single

@@ -17,7 +17,21 @@ public class PlayerMovement : NetworkBehaviour
     [Header("References")]
     [SerializeField] private InputActionReference moveActionReference;
     [SerializeField] private InputActionReference sprintActionReference;
-    [SerializeField] private Camera camera;
+    [SerializeField] private Camera cameraPlayer;
+
+    private NetworkVariable<Vector3> initialSpawnPosition =
+    new NetworkVariable<Vector3>(
+        new Vector3(float.MinValue, 0, 0),
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<bool> hasAppliedSpawn =
+        new NetworkVariable<bool>(
+            false,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Owner
+        );
 
     private Rigidbody2D rb;
     private Vector2 moveInput;
@@ -33,8 +47,8 @@ public class PlayerMovement : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        if (camera != null)
-            camera.gameObject.SetActive(IsOwner);
+        if (cameraPlayer != null)
+            cameraPlayer.gameObject.SetActive(IsOwner);
 
         if (IsOwner)
         {
@@ -72,6 +86,8 @@ public class PlayerMovement : NetworkBehaviour
 
         sprintActionReference.action.started += Sprint;
         sprintActionReference.action.canceled += SprintStop;
+
+        initialSpawnPosition.OnValueChanged += OnSpawnPositionChanged;
     }
 
     private void OnDisable()
@@ -81,6 +97,40 @@ public class PlayerMovement : NetworkBehaviour
 
         sprintActionReference.action.started -= Sprint;
         sprintActionReference.action.canceled -= SprintStop;
+
+        initialSpawnPosition.OnValueChanged -= OnSpawnPositionChanged;
+    }
+
+    public void AssignSpawnPosition(Vector3 position)
+    {
+        if (!IsServer)
+            return;
+
+        initialSpawnPosition.Value = position;
+
+        if (IsOwner)
+            ApplySpawnPosition(position);
+    }
+
+    private void OnSpawnPositionChanged(Vector3 previous, Vector3 current)
+    {
+        if (IsOwner)
+            ApplySpawnPosition(current);
+    }
+
+    private void ApplySpawnPosition(Vector3 position)
+    {
+        rb.position = position;
+        transform.position = position;
+
+        moveInput = Vector2.zero;
+
+        hasAppliedSpawn.Value = true;
+    }
+
+    public bool HasAppliedSpawn()
+    {
+        return hasAppliedSpawn.Value;
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
