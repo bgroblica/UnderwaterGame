@@ -19,19 +19,11 @@ public class PlayerMovement : NetworkBehaviour
     [SerializeField] private InputActionReference sprintActionReference;
     [SerializeField] private Camera cameraPlayer;
 
-    private NetworkVariable<Vector3> initialSpawnPosition =
-    new NetworkVariable<Vector3>(
-        new Vector3(float.MinValue, 0, 0),
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    private NetworkVariable<Vector3> initialSpawnPosition = new NetworkVariable<Vector3>(new Vector3(float.MinValue, 0, 0), NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    private NetworkVariable<bool> hasAppliedSpawn =
-        new NetworkVariable<bool>(
-            false,
-            NetworkVariableReadPermission.Everyone,
-            NetworkVariableWritePermission.Owner
-        );
+    private NetworkVariable<bool> hasAppliedSpawn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+   // private NetworkVariable<bool> canMove = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private Rigidbody2D rb;
     private Vector2 moveInput;
@@ -47,6 +39,9 @@ public class PlayerMovement : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        initialSpawnPosition.OnValueChanged += OnSpawnPositionChanged;
+       // canMove.OnValueChanged += OnCanMoveChanged;
+
         if (cameraPlayer != null)
             cameraPlayer.gameObject.SetActive(IsOwner);
 
@@ -54,11 +49,19 @@ public class PlayerMovement : NetworkBehaviour
         {
             moveActionReference.action.Enable();
             sprintActionReference.action.Enable();
+
+            if (initialSpawnPosition.Value.x != float.MinValue)
+            {
+                ApplySpawnPosition(initialSpawnPosition.Value);
+            }
         }
     }
 
     public override void OnNetworkDespawn()
     {
+        initialSpawnPosition.OnValueChanged -= OnSpawnPositionChanged;
+       // canMove.OnValueChanged -= OnCanMoveChanged;
+
         if (IsOwner)
         {
             moveActionReference.action.Disable();
@@ -66,10 +69,30 @@ public class PlayerMovement : NetworkBehaviour
         }
     }
 
+    public void EnableMovement()
+    {
+        if (!IsServer)
+            return;
+
+      //  canMove.Value = true;
+        rb.gravityScale = gravity;
+
+        Debug.Log(
+            $"[SERVER] Movement enabled for client {OwnerClientId}. " //+
+            //$"canMove = {canMove.Value}"
+        );
+    }
+
     private void FixedUpdate()
     {
         if (!IsOwner)
             return;
+
+      // if (!canMove.Value)
+      // {
+      //     rb.gravityScale = 0f;
+      //     return;
+      // }
 
         rb.MovePosition(
             rb.position + moveInput.normalized *
@@ -86,8 +109,6 @@ public class PlayerMovement : NetworkBehaviour
 
         sprintActionReference.action.started += Sprint;
         sprintActionReference.action.canceled += SprintStop;
-
-        initialSpawnPosition.OnValueChanged += OnSpawnPositionChanged;
     }
 
     private void OnDisable()
@@ -97,14 +118,11 @@ public class PlayerMovement : NetworkBehaviour
 
         sprintActionReference.action.started -= Sprint;
         sprintActionReference.action.canceled -= SprintStop;
-
-        initialSpawnPosition.OnValueChanged -= OnSpawnPositionChanged;
     }
 
     public void AssignSpawnPosition(Vector3 position)
     {
-        if (!IsServer)
-            return;
+        if (!IsServer) return;
 
         initialSpawnPosition.Value = position;
 
@@ -114,23 +132,72 @@ public class PlayerMovement : NetworkBehaviour
 
     private void OnSpawnPositionChanged(Vector3 previous, Vector3 current)
     {
-        if (IsOwner)
-            ApplySpawnPosition(current);
+
+        if (!IsOwner) return;
+
+        ApplySpawnPosition(current);
     }
 
     private void ApplySpawnPosition(Vector3 position)
     {
+        if (!IsOwner)
+            return;
+
         rb.position = position;
         transform.position = position;
 
         moveInput = Vector2.zero;
 
+        if (IsServer)
+        {
+            hasAppliedSpawn.Value = true;
+        }
+        else
+        {
+            ConfirmSpawnServerRpc();
+        }
+    }
+
+    [ServerRpc]
+    private void ConfirmSpawnServerRpc(ServerRpcParams rpcParams = default)
+    {
+        ulong senderId = rpcParams.Receive.SenderClientId;
+
+        Debug.Log(
+            $"Spawn confirmation received from sender {senderId}. " +
+            $"Player OwnerClientId: {OwnerClientId}"
+        );
+
+        if (senderId != OwnerClientId)
+        {
+            Debug.LogError("Spawn confirmation sender doesn't match owner!");
+            return;
+        }
+
         hasAppliedSpawn.Value = true;
+
+        Debug.Log(
+            $"SERVER: hasAppliedSpawn for client {OwnerClientId} = " +
+            $"{hasAppliedSpawn.Value}"
+        );
     }
 
     public bool HasAppliedSpawn()
     {
+        Debug.Log(
+            $"Checking spawn confirmation for client {OwnerClientId}: " +
+            $"{hasAppliedSpawn.Value}"
+        );
+
         return hasAppliedSpawn.Value;
+    }
+
+    private void OnCanMoveChanged(bool previous, bool current)
+    {
+        Debug.Log(
+            $"Client {OwnerClientId}: canMove changed to {current}. " +
+            $"IsOwner: {IsOwner}, IsServer: {IsServer}"
+        );
     }
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
@@ -151,7 +218,7 @@ public class PlayerMovement : NetworkBehaviour
 
     private void Sprint(InputAction.CallbackContext ctx)
     {
-        if (!IsOwner) return;
+      //  if (!IsOwner || !canMove.Value) return;
 
         if (!isDragging)
             currentSpeed = swimFastSpeed;

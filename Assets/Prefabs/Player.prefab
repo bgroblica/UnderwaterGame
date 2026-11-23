@@ -437,7 +437,7 @@ MonoBehaviour:
   gravity: 0.2
   moveActionReference: {fileID: -1680190386980627800, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   sprintActionReference: {fileID: -7471211009204490832, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  camera: {fileID: 8821029889984625787}
+  cameraPlayer: {fileID: 8821029889984625787}
 --- !u!114 &-1913571536459587468
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -8,15 +8,16 @@ public class PlayerSpawner : NetworkBehaviour
 {
     [SerializeField] private Transform[] spawnPoints;
 
-    private bool playersPositioned = false;
+    private HashSet<ulong> assignedPlayers = new HashSet<ulong>();
+
+    private int nextSpawnIndex = 0;
 
     public override void OnNetworkSpawn()
     {
         if (!IsServer)
             return;
 
-        NetworkManager.SceneManager.OnLoadEventCompleted +=
-            OnLoadEventCompleted;
+        NetworkManager.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
     }
 
     public override void OnNetworkDespawn()
@@ -24,8 +25,7 @@ public class PlayerSpawner : NetworkBehaviour
         if (!IsServer)
             return;
 
-        NetworkManager.SceneManager.OnLoadEventCompleted -=
-            OnLoadEventCompleted;
+        NetworkManager.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
     }
 
     private void OnLoadEventCompleted(
@@ -48,79 +48,109 @@ public class PlayerSpawner : NetworkBehaviour
 
     private void AssignSpawnPositions()
     {
-        if (!IsServer || playersPositioned)
+        if (!IsServer)
             return;
 
-        List<NetworkClient> clients =
-            new List<NetworkClient>(
-                NetworkManager.Singleton.ConnectedClientsList
+        List<NetworkClient> clients = new List<NetworkClient>(NetworkManager.Singleton.ConnectedClientsList);
+
+        clients.Sort((a, b) => a.ClientId.CompareTo(b.ClientId));
+
+        foreach (NetworkClient client in clients)
+        {
+            if (assignedPlayers.Contains(client.ClientId))
+                continue;
+
+            if (client.PlayerObject == null)
+            {
+                Debug.LogWarning(
+                    $"PlayerObject not ready for client {client.ClientId}"
+                );
+
+                continue;
+            }
+
+            if (nextSpawnIndex >= spawnPoints.Length)
+            {
+                Debug.LogError("Not enough spawn points!");
+                return;
+            }
+
+            PlayerMovement movement =
+                client.PlayerObject.GetComponent<PlayerMovement>();
+
+            if (movement == null)
+            {
+                Debug.LogError("PlayerMovement missing!");
+                continue;
+            }
+
+            Vector3 spawnPosition =
+                spawnPoints[nextSpawnIndex].position;
+
+            movement.AssignSpawnPosition(spawnPosition);
+
+            assignedPlayers.Add(client.ClientId);
+
+            Debug.Log(
+                $"Assigned spawn {nextSpawnIndex} to client {client.ClientId}"
             );
 
-        // Consistent player ordering.
-        clients.Sort((a, b) =>
-            a.ClientId.CompareTo(b.ClientId));
+            nextSpawnIndex++;
+        }
+    }
 
-        if (clients.Count > spawnPoints.Length)
+    private bool matchReady = false;
+
+    private void Update()
+    {
+        if (!IsServer)
+            return;
+
+        AssignSpawnPositions();
+
+        if (assignedPlayers.Count !=
+            NetworkManager.Singleton.ConnectedClientsList.Count)
         {
-            Debug.LogError("Not enough spawn points for all players!");
+            Debug.Log(
+                $"Waiting for assignments. Assigned: {assignedPlayers.Count}, " +
+                $"Connected: {NetworkManager.Singleton.ConnectedClientsList.Count}"
+            );
+
             return;
         }
 
-        for (int i = 0; i < clients.Count; i++)
+        foreach (NetworkClient client in
+                 NetworkManager.Singleton.ConnectedClientsList)
         {
-            NetworkObject playerObject =
-                clients[i].PlayerObject;
-
-            if (playerObject == null)
+            if (client.PlayerObject == null)
             {
-                Debug.LogError(
-                    "PlayerObject missing for client: " +
-                    clients[i].ClientId
+                Debug.LogWarning(
+                    $"Client {client.ClientId} has no PlayerObject!"
                 );
 
                 return;
             }
 
             PlayerMovement movement =
-                playerObject.GetComponent<PlayerMovement>();
+                client.PlayerObject.GetComponent<PlayerMovement>();
 
             if (movement == null)
             {
-                Debug.LogError("PlayerMovement missing!");
+                Debug.LogError(
+                    $"Client {client.ClientId} has no PlayerMovement!"
+                );
+
                 return;
             }
 
-            movement.AssignSpawnPosition(
-                spawnPoints[i].position
-            );
+            if (!movement.HasAppliedSpawn())
+            {
+                Debug.Log(
+                    $"Waiting for spawn confirmation from client {client.ClientId}"
+                );
 
-            Debug.Log(
-                "Assigned spawn point " + i +
-                " to player " + clients[i].ClientId
-            );
-        }
-
-        playersPositioned = true;
-    }
-
-    private void Update()
-    {
-        if (!IsServer || !playersPositioned)
-            return;
-
-        foreach (NetworkClient client in
-                 NetworkManager.Singleton.ConnectedClientsList)
-        {
-            if (client.PlayerObject == null)
                 return;
-
-            PlayerMovement movement =
-                client.PlayerObject.GetComponent<PlayerMovement>();
-
-            if (movement == null || !movement.HasAppliedSpawn())
-                return;
+            }
         }
-
-        Debug.Log("All players have applied their spawn positions!");
     }
 }
