@@ -8,8 +8,9 @@ public class PlayerSpawner : NetworkBehaviour
 {
     [SerializeField] private Transform[] spawnPoints;
 
-    private HashSet<ulong> assignedPlayers = new HashSet<ulong>();
+    private bool matchStarted = false;
 
+    private HashSet<ulong> assignedPlayers = new HashSet<ulong>();
     private int nextSpawnIndex = 0;
 
     public override void OnNetworkSpawn()
@@ -99,58 +100,46 @@ public class PlayerSpawner : NetworkBehaviour
         }
     }
 
-    private bool matchReady = false;
-
     private void Update()
     {
-        if (!IsServer)
+        if (!IsServer || matchStarted)
             return;
 
         AssignSpawnPositions();
 
-        if (assignedPlayers.Count !=
-            NetworkManager.Singleton.ConnectedClientsList.Count)
-        {
-            Debug.Log(
-                $"Waiting for assignments. Assigned: {assignedPlayers.Count}, " +
-                $"Connected: {NetworkManager.Singleton.ConnectedClientsList.Count}"
-            );
+        var clients = NetworkManager.ConnectedClientsList;
 
+        if (clients.Count == 0)
             return;
-        }
 
-        foreach (NetworkClient client in
-                 NetworkManager.Singleton.ConnectedClientsList)
+        if (assignedPlayers.Count != clients.Count)
+            return;
+
+        foreach (var client in clients)
         {
             if (client.PlayerObject == null)
-            {
-                Debug.LogWarning(
-                    $"Client {client.ClientId} has no PlayerObject!"
-                );
-
                 return;
-            }
 
             PlayerMovement movement =
                 client.PlayerObject.GetComponent<PlayerMovement>();
 
             if (movement == null)
-            {
-                Debug.LogError(
-                    $"Client {client.ClientId} has no PlayerMovement!"
-                );
-
                 return;
-            }
 
             if (!movement.HasAppliedSpawn())
-            {
-                Debug.Log(
-                    $"Waiting for spawn confirmation from client {client.ClientId}"
-                );
-
                 return;
-            }
+        }
+
+        matchStarted = true;
+
+        Debug.Log("All players spawned! Enabling movement.");
+
+        foreach (var client in clients)
+        {
+            PlayerMovement movement =
+                client.PlayerObject.GetComponent<PlayerMovement>();
+
+            movement.EnableMovement();
         }
     }
 }

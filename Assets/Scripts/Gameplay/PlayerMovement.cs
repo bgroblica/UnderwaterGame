@@ -23,12 +23,13 @@ public class PlayerMovement : NetworkBehaviour
 
     private NetworkVariable<bool> hasAppliedSpawn = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-   // private NetworkVariable<bool> canMove = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private NetworkVariable<bool> canMove = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private Rigidbody2D rb;
     private Vector2 moveInput;
     private float currentSpeed;
     private bool isDragging = false;
+    private bool matchStarted = false;
 
     private void Awake()
     {
@@ -40,7 +41,7 @@ public class PlayerMovement : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         initialSpawnPosition.OnValueChanged += OnSpawnPositionChanged;
-       // canMove.OnValueChanged += OnCanMoveChanged;
+        canMove.OnValueChanged += OnCanMoveChanged;
 
         if (cameraPlayer != null)
             cameraPlayer.gameObject.SetActive(IsOwner);
@@ -60,7 +61,7 @@ public class PlayerMovement : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         initialSpawnPosition.OnValueChanged -= OnSpawnPositionChanged;
-       // canMove.OnValueChanged -= OnCanMoveChanged;
+        canMove.OnValueChanged -= OnCanMoveChanged;
 
         if (IsOwner)
         {
@@ -74,13 +75,7 @@ public class PlayerMovement : NetworkBehaviour
         if (!IsServer)
             return;
 
-      //  canMove.Value = true;
-        rb.gravityScale = gravity;
-
-        Debug.Log(
-            $"[SERVER] Movement enabled for client {OwnerClientId}. " //+
-            //$"canMove = {canMove.Value}"
-        );
+        canMove.Value = true;
     }
 
     private void FixedUpdate()
@@ -88,15 +83,16 @@ public class PlayerMovement : NetworkBehaviour
         if (!IsOwner)
             return;
 
-      // if (!canMove.Value)
-      // {
-      //     rb.gravityScale = 0f;
-      //     return;
-      // }
+        if (!canMove.Value)
+        {
+            rb.gravityScale = 0f;
+            return;
+        }
+
+        rb.gravityScale = gravity;
 
         rb.MovePosition(
-            rb.position + moveInput.normalized *
-            currentSpeed * Time.fixedDeltaTime
+            rb.position + moveInput.normalized * currentSpeed * Time.fixedDeltaTime
         );
 
         Rotate();
@@ -194,11 +190,11 @@ public class PlayerMovement : NetworkBehaviour
 
     private void OnCanMoveChanged(bool previous, bool current)
     {
-        Debug.Log(
-            $"Client {OwnerClientId}: canMove changed to {current}. " +
-            $"IsOwner: {IsOwner}, IsServer: {IsServer}"
-        );
+        Debug.Log($"Client {OwnerClientId}: canMove changed to {current}. " +$"IsOwner: {IsOwner}, IsServer: {IsServer}");
     }
+
+
+    // MOVEMENT /////////////
 
     private void OnMovePerformed(InputAction.CallbackContext ctx)
     {
@@ -218,7 +214,7 @@ public class PlayerMovement : NetworkBehaviour
 
     private void Sprint(InputAction.CallbackContext ctx)
     {
-      //  if (!IsOwner || !canMove.Value) return;
+        if (!IsOwner || !canMove.Value) return;
 
         if (!isDragging)
             currentSpeed = swimFastSpeed;
