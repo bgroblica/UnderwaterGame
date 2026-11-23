@@ -1,4 +1,3 @@
-
 using UnityEngine;
 using Unity.Netcode;
 using UnityEngine.SceneManagement;
@@ -12,6 +11,10 @@ public class PlayerSpawner : NetworkBehaviour
 
     private HashSet<ulong> assignedPlayers = new HashSet<ulong>();
     private int nextSpawnIndex = 0;
+
+    private bool fadeStarted = false;
+
+    private HashSet<ulong> finishedFadingPlayers = new HashSet<ulong>();
 
     public override void OnNetworkSpawn()
     {
@@ -102,7 +105,7 @@ public class PlayerSpawner : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsServer || matchStarted)
+        if (!IsServer || matchStarted || fadeStarted)
             return;
 
         AssignSpawnPositions();
@@ -135,16 +138,72 @@ public class PlayerSpawner : NetworkBehaviour
                 return;
         }
 
+        fadeStarted = true;
+
+        Debug.Log("All players spawned! Starting loading screen fade.");
+
+        StartFadeRpc();
+    }
+
+
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    private void StartFadeRpc()
+    {
+        LoadingScreenManager.Instance.StartFade(() =>
+        {
+            ConfirmFadeFinishedRpc();
+        });
+    }
+
+    [Rpc(SendTo.ClientsAndHost, InvokePermission = RpcInvokePermission.Server)]
+    private void ShowGoRpc()
+    {
+        LoadingScreenManager.Instance.ShowGoMessage();
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void ConfirmFadeFinishedRpc(RpcParams rpcParams = default)
+    {
+        if (!fadeStarted || matchStarted)
+            return;
+
+        ulong senderId = rpcParams.Receive.SenderClientId;
+
+        if (!NetworkManager.ConnectedClients.ContainsKey(senderId))
+            return;
+
+        if (!finishedFadingPlayers.Add(senderId))
+            return;
+
+        Debug.Log($"Player {senderId} finished fading.");
+
+        if (SessionManager.CurrentSession == null)
+            return;
+
+        int expectedPlayers = SessionManager.CurrentSession.Players.Count;
+
+        if (NetworkManager.ConnectedClientsList.Count != expectedPlayers)
+            return;
+
+        if (finishedFadingPlayers.Count != expectedPlayers)
+            return;
+
         matchStarted = true;
 
-        Debug.Log("All players spawned! Enabling movement.");
+        Debug.Log("Everyone finished fading! Enabling movement.");
 
-        foreach (var client in clients)
+        foreach (var client in NetworkManager.ConnectedClientsList)
         {
+            if (client.PlayerObject == null)
+                continue;
+
             PlayerMovement movement =
                 client.PlayerObject.GetComponent<PlayerMovement>();
 
-            movement.EnableMovement();
+            if (movement != null)
+                movement.EnableMovement();
         }
+
+        ShowGoRpc();
     }
 }

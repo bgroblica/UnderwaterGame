@@ -6,12 +6,19 @@ public class Timer : MonoBehaviour
     [SerializeField] public float timer = 300f;
 
     [SerializeField] private TextMeshProUGUI textTimer;
+    [SerializeField] private GameObject timerPanel;
 
-    [SerializeField] private bool timeStarted = false;
-
+    private bool timeStarted = false;
 
     private void Awake()
     {
+        timeStarted = false;
+        timerPanel.SetActive(false);
+    }
+
+    public void StartTimer()
+    {
+        timerPanel.SetActive(true);
         timeStarted = true;
     }
     private void Update()
