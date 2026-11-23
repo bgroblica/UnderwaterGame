@@ -124,6 +124,8 @@ public class PlayerMovement : NetworkBehaviour
 
         if (IsOwner)
             ApplySpawnPosition(position);
+
+        Debug.Log($"AssignSpawnPosition: Owner={OwnerClientId}, " +$"IsServer={IsServer}, Position={position}");
     }
 
     private void OnSpawnPositionChanged(Vector3 previous, Vector3 current)
@@ -152,6 +154,7 @@ public class PlayerMovement : NetworkBehaviour
         {
             ConfirmSpawnServerRpc();
         }
+        Debug.Log($"ApplySpawnPosition: Owner={OwnerClientId}, " + $"IsOwner={IsOwner}, Position={initialSpawnPosition.Value}");
     }
 
     [ServerRpc]
@@ -176,6 +179,7 @@ public class PlayerMovement : NetworkBehaviour
             $"SERVER: hasAppliedSpawn for client {OwnerClientId} = " +
             $"{hasAppliedSpawn.Value}"
         );
+        Debug.Log($"Spawn confirmed: Owner={OwnerClientId}, " + $"Sender={rpcParams.Receive.SenderClientId}");
     }
 
     public bool HasAppliedSpawn()

@@ -109,7 +109,12 @@ public class PlayerSpawner : NetworkBehaviour
 
         var clients = NetworkManager.ConnectedClientsList;
 
-        if (clients.Count == 0)
+        if (SessionManager.CurrentSession == null)
+            return;
+
+        int expectedPlayers = SessionManager.CurrentSession.Players.Count;
+
+        if (expectedPlayers == 0 || clients.Count != expectedPlayers)
             return;
 
         if (assignedPlayers.Count != clients.Count)
